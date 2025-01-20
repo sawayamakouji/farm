@@ -1,13 +1,17 @@
 // app/components/Game.tsx
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useLayoutEffect, useRef } from 'react'
+import GameStats from './GameStats'
+import CropCard from './CropCard'
+import HarvestAnimation from './HarvestAnimation'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { VisualDisplay } from './VisualDisplay'
 import { AutoFeature } from './AutoFeature'
+import Footer from '@/components/Footer'
 import { playSound, setSoundEnabled } from '@/lib/utils'
 import { createAudioManager, destroyAudioManager } from '@/lib/audio'
 
@@ -49,6 +53,12 @@ interface GameProps {
 }
 
 export default function Game({ initialSoundEnabled }: GameProps) {
+  useLayoutEffect(() => {
+    document.body.classList.add('no-footer')
+    return () => {
+      document.body.classList.remove('no-footer')
+    }
+  }, [])
   const audioManager = useMemo(() => {
     const manager = createAudioManager();
     console.log('[Game] Created AudioManager instance');
@@ -88,6 +98,24 @@ export default function Game({ initialSoundEnabled }: GameProps) {
     autoLand: { enabled: false, interval: 60 },
     soundEnabled: true
   })
+  const [totalClicks, setTotalClicks] = useState(0)
+  const [totalCoins, setTotalCoins] = useState(0)
+  const prevPlayer = useRef<PlayerState>()
+  const [autoHarvestAnimations, setAutoHarvestAnimations] = useState<{cropId: string, amount: number}[]>([])
+
+  useEffect(() => {
+    if (!prevPlayer.current) {
+      // 初回は前回の状態がないのでtotalCoinsを初期化
+      setTotalCoins(player.money)
+    } else {
+      const moneyGained = player.money - prevPlayer.current.money
+      if (moneyGained > 0) {
+        setTotalCoins(prev => prev + moneyGained)
+      }
+    }
+    prevPlayer.current = player
+  }, [player.money])
+  const [totalHarvests, setTotalHarvests] = useState(0)
   const [bgmVolume, setBgmVolume] = useState(0.3)
 
   useEffect(() => {
@@ -145,12 +173,25 @@ export default function Game({ initialSoundEnabled }: GameProps) {
         let newState = { ...prev }
 
         // Auto harvesting
+        const harvestedCrops: {cropId: string, amount: number}[] = []
         const newCrops = { ...prev.crops }
-        const harvestPerLand = prev.autoHarvesters / prev.land
+        const harvestPerLand = (prev.autoHarvesters * 2) / prev.land // 収穫量を2倍に
         prev.unlockedCrops.forEach(cropId => {
-          newCrops[cropId] = (newCrops[cropId] || 0) + Math.floor(harvestPerLand)
+          const amount = Math.floor(harvestPerLand)
+          if (amount > 0) {
+            harvestedCrops.push({cropId, amount})
+            newCrops[cropId] = (newCrops[cropId] || 0) + amount
+          }
         })
         newState.crops = newCrops
+        
+        // Add harvest animations
+        if (harvestedCrops.length > 0) {
+          setAutoHarvestAnimations(prev => [
+            ...prev,
+            ...harvestedCrops
+          ])
+        }
 
         // Auto selling
         if (prev.unlockedFeatures.includes('autoSell') && prev.autoSell.enabled) {
@@ -190,6 +231,8 @@ export default function Game({ initialSoundEnabled }: GameProps) {
 
   const harvestCrop = (cropId: string) => {
     playSound('harvest')
+    setTotalClicks(prev => prev + 1)
+    setTotalHarvests(prev => prev + 1)
     setPlayer(prev => ({
       ...prev,
       crops: {
@@ -256,19 +299,15 @@ export default function Game({ initialSoundEnabled }: GameProps) {
       return
     }
     playSound('unlock')
-    setPlayer(prev => {
-      const newCrops = { ...prev.crops }
-      if (!(cropId in newCrops)) {
-        newCrops[cropId] = 0
+    setPlayer(prev => ({
+      ...prev,
+      money: prev.money - crop.unlockCost,
+      unlockedCrops: [...prev.unlockedCrops, cropId],
+      crops: {
+        ...prev.crops,
+        [cropId]: 0
       }
-      
-      return {
-        ...prev,
-        money: prev.money - crop.unlockCost,
-        unlockedCrops: [...prev.unlockedCrops, cropId],
-        crops: newCrops
-      }
-    })
+    }))
   }
 
   const unlockFeature = (featureId: string) => {
@@ -298,12 +337,29 @@ export default function Game({ initialSoundEnabled }: GameProps) {
   }
 
   return (
-    <div className="min-h-screen bg-green-100 flex flex-col items-center justify-center p-4">
+    <div className="relative min-h-screen flex flex-col items-center justify-center p-4">
+      <div
+        className="fixed inset-0 bg-[url('/png/BG.jpg')] bg-cover bg-center opacity-70 -z-10"
+      ></div>
+      <div className="fixed inset-0 bg-white/30 backdrop-blur-sm -z-20">
+        {autoHarvestAnimations.map((animation, index) => (
+          <HarvestAnimation
+            key={index}
+            cropId={animation.cropId}
+            amount={animation.amount}
+            onComplete={() => {
+              setAutoHarvestAnimations(prev =>
+                prev.filter((_, i) => i !== index)
+              )
+            }}
+          />
+        ))}
+      </div>
       <div className="flex items-center justify-center gap-4 mb-8">
         <h1 className="text-4xl font-bold">Farm Clicker: グローバル農場へ</h1>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">効果音</span>
+            <span className="text-sm text-gray-600">🔔</span>
             <Switch
               checked={player.soundEnabled}
               onCheckedChange={(checked) => {
@@ -313,7 +369,7 @@ export default function Game({ initialSoundEnabled }: GameProps) {
             />
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">BGM</span>
+            <span className="text-sm text-gray-600">🎵</span>
             <Switch
               checked={!audioManager?.muted}
               onCheckedChange={(checked) => {
@@ -334,37 +390,17 @@ export default function Game({ initialSoundEnabled }: GameProps) {
         />
         <div className="grid grid-cols-2 gap-4 mb-4">
           {CROP_TYPES.map(crop => (
-            <motion.div
+            <CropCard
               key={`crop-${crop.id}`}
-              className={`bg-brown-200 rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer ${
-                player.unlockedCrops.includes(crop.id) ? '' : 'opacity-50'
-              }`}
-              onClick={(e) => {
-                e.preventDefault()
-                if (player.unlockedCrops.includes(crop.id)) {
-                  harvestCrop(crop.id)
-                } else {
-                  unlockCrop(crop.id)
-                }
-                }
-              }
-              whileTap={{ scale: 0.95 }}
-            >
-              <div className="text-2xl mb-2">{crop.name}</div>
-              {player.unlockedCrops.includes(crop.id) ? (
-                <div className="text-lg">{player.crops[crop.id] || 0}</div>
-              ) : (
-                <Button 
-                  onClick={(e) => {
-                    e.preventDefault()
-                    unlockCrop(crop.id)
-                  }} 
-                  disabled={player.money < crop.unlockCost || player.unlockedCrops.includes(crop.id)}
-                >
-                  アンロック (${crop.unlockCost})
-                </Button>
-              )}
-            </motion.div>
+              cropId={crop.id}
+              cropName={crop.name}
+              amount={player.crops[crop.id] || 0}
+              unlocked={player.unlockedCrops.includes(crop.id)}
+              onClick={() => harvestCrop(crop.id)}
+              onUnlock={() => unlockCrop(crop.id)}
+              unlockCost={crop.unlockCost}
+              playerMoney={player.money}
+            />
           ))}
         </div>
         <div className="grid grid-cols-2 gap-4 mb-4">
@@ -397,7 +433,13 @@ export default function Game({ initialSoundEnabled }: GameProps) {
             />
           ))}
         </div>
+        <GameStats
+          totalClicks={totalClicks}
+          totalCoins={totalCoins}
+          totalHarvests={totalHarvests}
+        />
       </div>
+      <Footer totalCoins={totalCoins} />
     </div>
   )
 }

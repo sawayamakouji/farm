@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { createAudioManager } from '@/lib/audio'
@@ -39,7 +40,9 @@ export default function HomePage() {
 
 
   return (
-    <div className="min-h-screen bg-green-100 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4">
+      <div className="fixed inset-0 bg-[url('/png/BG.jpg')] bg-cover bg-center opacity-50 -z-10" />
+      <div className="fixed inset-0 bg-white/30 backdrop-blur-sm -z-20" />
       <h1 className="text-4xl font-bold mb-8">Farm Clicker: グローバル農場へ</h1>
       
       {mode === 'start' ? (
@@ -51,11 +54,13 @@ export default function HomePage() {
             ゲームスタート
           </Button>
           <Button
-            onClick={() => setMode('instructions')}
+            asChild
             className="py-6 text-xl"
             variant="outline"
           >
-            操作説明
+            <Link href="/instructions">
+              操作説明
+            </Link>
           </Button>
           <div className="flex items-center gap-2 mt-4">
             <Switch
@@ -70,7 +75,7 @@ export default function HomePage() {
       ) : (
         <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
           <h2 className="text-2xl font-bold mb-4">操作説明</h2>
-          <div className="space-y-4 text-gray-700">
+          <div className="space-y-6 text-gray-700 text-lg leading-relaxed">
             <p>このゲームは、農場を経営しながら作物を育て、収穫し、売却して成長させていくシミュレーションゲームです。</p>
             最初は小麦をクリックして売却をくりかえし、お金がたまったら収穫力アップや新しい作物をアンロックしましょう。
             <div className="space-y-4">
