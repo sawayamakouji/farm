@@ -1,7 +1,19 @@
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 
-export function CropField({ crop, amount, onHarvest }) {
+interface CropFieldProps {
+  crop: {
+    id: string
+    name: string
+    baseValue: number
+    growthTime: number
+    unlockCost: number
+  }
+  amount: number
+  onHarvest: () => void
+}
+
+export function CropField({ crop, amount, onHarvest }: CropFieldProps) {
   return (
     <motion.div
       className="bg-brown-200 rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer"

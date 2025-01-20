@@ -17,6 +17,7 @@ export function VisualDisplay({ money, fields, crops, unlockedCrops }: VisualDis
   return (
     <div className="bg-green-100 p-4 rounded-lg mb-4">
       <div className="text-2xl mb-2">
+        
         {Array(Math.min(fields, 10)).fill('🟩').join('')}
         {fields > 10 ? ` +${fields - 10}` : ''}
       </div>
@@ -24,9 +25,9 @@ export function VisualDisplay({ money, fields, crops, unlockedCrops }: VisualDis
         💰 {money.toLocaleString()}
       </div>
       <div className="text-2xl">
-        {unlockedCrops.map(crop => (
-          <span key={crop} className="mr-2">
-            {CROP_EMOJIS[crop]} {crops[crop] || 0}
+        {Object.entries(crops).map(([cropId, amount]) => (
+          <span key={cropId} className="mr-2">
+            {CROP_EMOJIS[cropId]} {amount}
           </span>
         ))}
       </div>
