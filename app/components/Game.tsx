@@ -1,3 +1,4 @@
+// app/components/Game.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -8,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { VisualDisplay } from './VisualDisplay'
 import { AutoFeature } from './AutoFeature'
 import { playSound, setSoundEnabled } from '@/lib/utils'
-import { audioManager } from '@/lib/audio'
+import { createAudioManager } from '@/lib/audio'
 
 const PHASE_BGMS = [
   { threshold: 0, file: '/sounds/phase1.mp3' },
@@ -18,7 +19,7 @@ const PHASE_BGMS = [
 ]
 
 const CROP_TYPES = [
-  { id: 'wheat', name: '小麦', baseValue: 1, growthTime: 5, unlockCost: 0 },
+  { id: 'wheat', name: '小麦', baseValue: 100000000, growthTime: 5, unlockCost: 0 },
   { id: 'corn', name: 'トウモロコシ', baseValue: 4, growthTime: 8, unlockCost: 1000 },
   { id: 'strawberry', name: 'イチゴ', baseValue: 10, growthTime: 15, unlockCost: 10000 },
 ]
@@ -42,14 +43,14 @@ interface PlayerState {
   [key: string]: any // Allow dynamic properties for auto features
 }
 
-
 interface GameProps {
   initialSoundEnabled: boolean
+  audioManager: ReturnType<typeof createAudioManager>
 }
 
-export default function Game({ initialSoundEnabled }: GameProps) {
+export default function Game({ initialSoundEnabled, audioManager }: GameProps) {
   const [currentPhase, setCurrentPhase] = useState(0)
-  
+
   const checkPhase = (money: number) => {
     const newPhase = PHASE_BGMS
       .slice()
@@ -57,7 +58,6 @@ export default function Game({ initialSoundEnabled }: GameProps) {
       .findIndex(phase => money >= phase.threshold)
     if (newPhase !== currentPhase) {
       setCurrentPhase(newPhase)
-      audioManager.playBgm(PHASE_BGMS[newPhase].file)
     }
   }
 
@@ -76,10 +76,11 @@ export default function Game({ initialSoundEnabled }: GameProps) {
   const [bgmVolume, setBgmVolume] = useState(0.3)
 
   useEffect(() => {
+    console.log(`Game: useEffect audioManager=${audioManager}`)
     const timer = setInterval(() => {
       setPlayer(prev => {
         let newState = { ...prev }
-        
+
         // Auto harvesting
         const newCrops = { ...prev.crops }
         const harvestPerLand = prev.autoHarvesters / prev.land
@@ -116,7 +117,7 @@ export default function Game({ initialSoundEnabled }: GameProps) {
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [])
+  }, [audioManager])
 
   const harvestCrop = (cropId: string) => {
     playSound('harvest')
@@ -245,33 +246,14 @@ export default function Game({ initialSoundEnabled }: GameProps) {
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600">BGM</span>
             <Switch
-              checked={!audioManager.muted}
+              checked={!audioManager?.muted}
               onCheckedChange={(checked) => {
-                audioManager.toggleBgm(checked)
+                console.log(`Game: BGM Switch onCheckedChange checked=${checked}`)
+                  audioManager?.toggleBgm(checked);
               }}
             />
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">BGM音量</span>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={bgmVolume}
-              onChange={(e) => {
-                const volume = parseFloat(e.target.value)
-                setBgmVolume(volume)
-                audioManager.setVolume(volume)
-                console.log(`BGM Volume set to: ${volume}`)
-                window.dispatchEvent(new CustomEvent('bgmVolumeChanged', {
-                  detail: { volume }
-                }))
-              }}
-              className="w-24"
-            />
-          </div>
-        </div>
+         </div>
       </div>
       
       <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">

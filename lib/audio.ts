@@ -1,79 +1,97 @@
+// lib/audio.ts
 class AudioManager {
-  private audioContext: AudioContext
-  private bgmSource: AudioBufferSourceNode | null = null
-  private currentBgm: string | null = null
-  public bgmVolume: number = 0.5
-  private bgmGainNode: GainNode | null = null
-  private isMuted: boolean = false
+  private audioContext: AudioContext;
+  private bgmSource: AudioBufferSourceNode | null = null;
+  private currentBgm: string | null = null;
+  private bgmGainNode: GainNode | null = null;
+  private isMuted: boolean = false;
 
   constructor() {
-    this.audioContext = new AudioContext()
+      this.audioContext = new AudioContext();
   }
 
   async loadAudio(url: string): Promise<AudioBuffer> {
-    const response = await fetch(url)
-    const arrayBuffer = await response.arrayBuffer()
-    return await this.audioContext.decodeAudioData(arrayBuffer)
+      const response = await fetch(url);
+      const arrayBuffer = await response.arrayBuffer();
+      return await this.audioContext.decodeAudioData(arrayBuffer);
   }
 
   async playBgm(url: string, loop = true) {
-    if (this.currentBgm === url) return
-    
-    // Stop current BGM
-    if (this.bgmSource) {
-      this.bgmSource.stop()
-      this.bgmSource.disconnect()
-    }
+     
+      // Stop current BGM
+      if (this.bgmSource) {
+          this.bgmSource.stop();
+          this.bgmSource.disconnect();
+          if (this.bgmGainNode) {
+              this.bgmGainNode.disconnect();
+          }
+          this.bgmSource = null;
+      }
 
-    // Load and play new BGM
-    const buffer = await this.loadAudio(url)
-    this.bgmSource = this.audioContext.createBufferSource()
-    this.bgmSource.buffer = buffer
-    this.bgmSource.loop = loop
-    
-    this.bgmGainNode = this.audioContext.createGain()
-    this.bgmGainNode.gain.value = this.isMuted ? 0 : this.bgmVolume
-    
-    this.bgmSource.connect(this.bgmGainNode)
-    this.bgmGainNode.connect(this.audioContext.destination)
-    
-    this.bgmSource.start()
-    this.currentBgm = url
+      // Load and play new BGM
+      const buffer = await this.loadAudio(url);
+      this.bgmSource = this.audioContext.createBufferSource();
+      this.bgmSource.buffer = buffer;
+      this.bgmSource.loop = loop;
+
+      this.bgmGainNode = this.audioContext.createGain();
+      this.bgmGainNode.gain.value = this.isMuted ? 0 : 0.5; // 初期音量を0.5に固定
+
+      this.bgmSource.connect(this.bgmGainNode);
+      this.bgmGainNode.connect(this.audioContext.destination);
+
+      this.bgmSource.start();
+      this.currentBgm = url;
   }
 
-  setVolume(volume: number) {
-    this.bgmVolume = volume
-    if (this.bgmGainNode && !this.isMuted) {
-      this.bgmGainNode.gain.value = volume
-    }
-  }
 
-  toggleMute() {
-    this.isMuted = !this.isMuted
-    if (this.bgmGainNode) {
-      this.bgmGainNode.gain.value = this.isMuted ? 0 : this.bgmVolume
-    }
+toggleMute() {
+  this.isMuted = !this.isMuted
+  if (this.bgmGainNode) {
+    this.bgmGainNode.gain.value = this.isMuted ? 0 : 0.5
   }
-
+}
+  
   toggleBgm(enabled: boolean) {
-    this.isMuted = !enabled
-    if (this.bgmGainNode) {
-      this.bgmGainNode.gain.value = enabled ? this.bgmVolume : 0
-    }
+      // isMuted の値を更新
+      this.isMuted = !enabled;
+      console.log(`AudioManager: toggleBgm isMuted=${this.isMuted} enabled=${enabled}`);
+    
+      if (enabled) {
+           if (this.currentBgm) {
+               this.playBgm(this.currentBgm);
+              }
+      } else {
+          // オフにするなら stopBgm しておく
+          this.stopBgm();
+      }
   }
 
   stopBgm() {
-    if (this.bgmSource) {
-      this.bgmSource.stop()
-      this.bgmSource.disconnect()
-      this.bgmSource = null
-      this.currentBgm = null
-    }
+      if (this.bgmSource) {
+          this.bgmSource.stop();
+          this.bgmSource.disconnect();
+          if (this.bgmGainNode) {
+              this.bgmGainNode.disconnect();
+          }
+          this.bgmSource = null;
+      }
   }
 
   get muted(): boolean {
-    return this.isMuted
+      return this.isMuted;
   }
 }
 
-export const audioManager = new AudioManager()
+let audioManagerInstance: AudioManager | null = null;
+
+export const createAudioManager = () => {
+  if (!audioManagerInstance) {
+      audioManagerInstance = new AudioManager();
+  }
+  return audioManagerInstance;
+};
+
+export const audioManager = () => {
+  return audioManagerInstance;
+};

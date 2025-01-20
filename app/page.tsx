@@ -1,27 +1,42 @@
+// app/page.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { audioManager } from '@/lib/audio'
+import { createAudioManager } from '@/lib/audio'
 import Game from '@/app/components/Game'
 
 export default function HomePage() {
   const [mode, setMode] = useState<'start' | 'game' | 'instructions'>('start')
   const [isMuted, setIsMuted] = useState(false)
+    const [audioManager, setAudioManager] = useState<ReturnType<typeof createAudioManager> | null>(null)
+  const [initialBgmPlayed, setInitialBgmPlayed] = useState(false);
+
 
   const handleMuteToggle = (checked: boolean) => {
     setIsMuted(!checked)
-    audioManager.setVolume(checked ? 0.5 : 0)
   }
 
-  useEffect(() => {
-    audioManager.setVolume(isMuted ? 0 : 0.5)
-  }, [isMuted])
 
-  if (mode === 'game') {
-    return <Game initialSoundEnabled={!isMuted} />
+    const startGame = () => {
+        const newAudioManager = createAudioManager();
+        setAudioManager(newAudioManager);
+      
+        setMode('game')
+    }
+    
+    useEffect(() => {
+        if(audioManager && !initialBgmPlayed) {
+            audioManager.playBgm('/sounds/phase1.mp3')
+            setInitialBgmPlayed(true)
+        }
+    }, [audioManager, initialBgmPlayed])
+
+  if (mode === 'game' && audioManager) {
+      return <Game initialSoundEnabled={!isMuted} audioManager={audioManager} />;
   }
+
 
   return (
     <div className="min-h-screen bg-green-100 flex flex-col items-center justify-center p-4">
@@ -30,7 +45,7 @@ export default function HomePage() {
       {mode === 'start' ? (
         <div className="flex flex-col gap-4 w-full max-w-md">
           <Button 
-            onClick={() => setMode('game')}
+            onClick={startGame}
             className="py-6 text-xl"
           >
             ゲームスタート
@@ -48,7 +63,7 @@ export default function HomePage() {
               onCheckedChange={handleMuteToggle}
               className="data-[state=checked]:bg-green-600"
             />
-
+          
           <p className="text-sm text-gray-500 text-center">※ゲーム中でも変更可能です</p>
         </div> 
         </div>
