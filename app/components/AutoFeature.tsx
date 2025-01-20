@@ -48,8 +48,9 @@ export function AutoFeature({
           value={interval}
           onChange={(e) => onIntervalChange(Number(e.target.value))}
           min={1}
-          className="w-20"
+          className="w-32"
         />
+        <span className="ml-2 text-sm text-gray-600">秒ごとに実行</span>
       </div>
     </div>
   )

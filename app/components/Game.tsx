@@ -1,7 +1,7 @@
 // app/components/Game.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { VisualDisplay } from './VisualDisplay'
 import { AutoFeature } from './AutoFeature'
 import { playSound, setSoundEnabled } from '@/lib/utils'
-import { createAudioManager } from '@/lib/audio'
+import { createAudioManager, destroyAudioManager } from '@/lib/audio'
 
 const PHASE_BGMS = [
   { threshold: 0, file: '/sounds/phase1.mp3' },
@@ -19,7 +19,7 @@ const PHASE_BGMS = [
 ]
 
 const CROP_TYPES = [
-  { id: 'wheat', name: '小麦', baseValue: 100000000, growthTime: 5, unlockCost: 0 },
+  { id: 'wheat', name: '小麦', baseValue: 1, growthTime: 5, unlockCost: 0 },
   { id: 'corn', name: 'トウモロコシ', baseValue: 4, growthTime: 8, unlockCost: 1000 },
   { id: 'strawberry', name: 'イチゴ', baseValue: 10, growthTime: 15, unlockCost: 10000 },
 ]
@@ -48,14 +48,29 @@ interface GameProps {
   audioManager: ReturnType<typeof createAudioManager>
 }
 
-export default function Game({ initialSoundEnabled, audioManager }: GameProps) {
+export default function Game({ initialSoundEnabled }: GameProps) {
+  const audioManager = useMemo(() => {
+    const manager = createAudioManager();
+    console.log('[Game] Created AudioManager instance');
+    return manager;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      console.log('[Game] Cleaning up AudioManager');
+      destroyAudioManager();
+    };
+  }, []);
   const [currentPhase, setCurrentPhase] = useState(0)
 
   const checkPhase = (money: number) => {
-    const newPhase = PHASE_BGMS
-      .slice()
-      .reverse()
-      .findIndex(phase => money >= phase.threshold)
+    let newPhase = 0
+    for (let i = PHASE_BGMS.length - 1; i >= 0; i--) {
+      if (money >= PHASE_BGMS[i].threshold) {
+        newPhase = i
+        break
+      }
+    }
     if (newPhase !== currentPhase) {
       setCurrentPhase(newPhase)
     }
@@ -74,6 +89,54 @@ export default function Game({ initialSoundEnabled, audioManager }: GameProps) {
     soundEnabled: true
   })
   const [bgmVolume, setBgmVolume] = useState(0.3)
+
+  useEffect(() => {
+    return () => {
+      console.log('[Game] Cleaning up AudioManager');
+      destroyAudioManager();
+    };
+  }, []);
+
+  // BGM control effect
+  useEffect(() => {
+    if (!audioManager) return;
+
+    console.log('[Game] Initial BGM setup');
+    const bgmFile = PHASE_BGMS[currentPhase].file;
+    
+    if (audioManager.muted) {
+      console.log('[Game] Muted - stopping BGM');
+      audioManager.stopBgm();
+    } else {
+      // Only play if not already playing the same BGM
+      if (audioManager.currentBgm !== bgmFile) {
+        console.log(`[Game] Playing new BGM: ${bgmFile}`);
+        audioManager.playBgm(bgmFile);
+      } else {
+        console.log('[Game] Same BGM already playing');
+      }
+    }
+
+    // Cleanup on unmount
+    return () => {
+      console.log('[Game] Cleaning up BGM');
+      audioManager.stopBgm();
+    };
+  }, [audioManager]); // Only depend on audioManager
+
+  // Phase change effect
+  useEffect(() => {
+    if (!audioManager || audioManager.muted) return;
+
+    console.log(`[Game] Phase changed to ${currentPhase}`);
+    const bgmFile = PHASE_BGMS[currentPhase].file;
+    
+    // Only play if not already playing the same BGM
+    if (audioManager.currentBgm !== bgmFile) {
+      console.log(`[Game] Playing phase BGM: ${bgmFile}`);
+      audioManager.playBgm(bgmFile);
+    }
+  }, [currentPhase, audioManager?.muted]);
 
   useEffect(() => {
     console.log(`Game: useEffect audioManager=${audioManager}`)
@@ -110,14 +173,20 @@ export default function Game({ initialSoundEnabled, audioManager }: GameProps) {
         }
 
         // Check phase after money changes
+        const prevPhase = currentPhase
         checkPhase(newState.money)
+
+        // Change BGM if phase changed
+        if (prevPhase !== currentPhase && audioManager) {
+          audioManager.playBgm(PHASE_BGMS[currentPhase].file)
+        }
 
         return newState
       })
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [audioManager])
+  }, [audioManager, currentPhase])
 
   const harvestCrop = (cropId: string) => {
     playSound('harvest')
