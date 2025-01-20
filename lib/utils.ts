@@ -15,7 +15,6 @@ export const playSound = (sound: 'harvest' | 'unlock' | 'unlock2' | 'unlock3' | 
   if (!soundEnabled) return
   
   const audio = new Audio(`/sounds/${sound}.mp3`)
-  audio.volume = 0.3
   audio.play().catch(() => {
     // 音声再生がブロックされた場合のエラーを無視
   })

@@ -243,6 +243,15 @@ export default function Game({ initialSoundEnabled }: GameProps) {
             />
           </div>
           <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">BGM</span>
+            <Switch
+              checked={!audioManager.muted}
+              onCheckedChange={(checked) => {
+                audioManager.toggleBgm(checked)
+              }}
+            />
+          </div>
+          <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600">BGM音量</span>
             <input
               type="range"

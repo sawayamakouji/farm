@@ -3,6 +3,7 @@ class AudioManager {
   private bgmSource: AudioBufferSourceNode | null = null
   private currentBgm: string | null = null
   public bgmVolume: number = 0.5
+  private bgmGainNode: GainNode | null = null
   private isMuted: boolean = false
 
   constructor() {
@@ -30,39 +31,35 @@ class AudioManager {
     this.bgmSource.buffer = buffer
     this.bgmSource.loop = loop
     
-    const gainNode = this.audioContext.createGain()
-    gainNode.gain.value = this.isMuted ? 0 : this.bgmVolume
+    this.bgmGainNode = this.audioContext.createGain()
+    this.bgmGainNode.gain.value = this.isMuted ? 0 : this.bgmVolume
     
-    this.bgmSource.connect(gainNode)
-    gainNode.connect(this.audioContext.destination)
+    this.bgmSource.connect(this.bgmGainNode)
+    this.bgmGainNode.connect(this.audioContext.destination)
     
     this.bgmSource.start()
     this.currentBgm = url
   }
 
   setVolume(volume: number) {
-    // Convert linear volume (0-1) to logarithmic scale (0.0001-1)
-    const minVolume = 0.0001
-    const logVolume = minVolume * Math.pow(10, volume * 2)
-    
     this.bgmVolume = volume
-    if (this.bgmSource) {
-      // Create new gain node
-      const gainNode = this.audioContext.createGain()
-      gainNode.gain.value = logVolume
-      
-      // Disconnect existing connections
-      this.bgmSource.disconnect()
-      
-      // Reconnect through new gain node
-      this.bgmSource.connect(gainNode)
-      gainNode.connect(this.audioContext.destination)
+    if (this.bgmGainNode && !this.isMuted) {
+      this.bgmGainNode.gain.value = volume
     }
   }
 
   toggleMute() {
     this.isMuted = !this.isMuted
-    this.setVolume(this.bgmVolume)
+    if (this.bgmGainNode) {
+      this.bgmGainNode.gain.value = this.isMuted ? 0 : this.bgmVolume
+    }
+  }
+
+  toggleBgm(enabled: boolean) {
+    this.isMuted = !enabled
+    if (this.bgmGainNode) {
+      this.bgmGainNode.gain.value = enabled ? this.bgmVolume : 0
+    }
   }
 
   stopBgm() {
@@ -72,6 +69,10 @@ class AudioManager {
       this.bgmSource = null
       this.currentBgm = null
     }
+  }
+
+  get muted(): boolean {
+    return this.isMuted
   }
 }
 

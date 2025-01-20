@@ -12,15 +12,12 @@ export default function HomePage() {
 
   const handleMuteToggle = (checked: boolean) => {
     setIsMuted(!checked)
-    audioManager.toggleMute()
-    if (checked) {
-      audioManager.setVolume(0.5)
-    }
+    audioManager.setVolume(checked ? 0.5 : 0)
   }
 
   useEffect(() => {
-    audioManager.setVolume(0.5)
-  }, [])
+    audioManager.setVolume(isMuted ? 0 : 0.5)
+  }, [isMuted])
 
   if (mode === 'game') {
     return <Game initialSoundEnabled={!isMuted} />
@@ -47,13 +44,8 @@ export default function HomePage() {
           </Button>
           <div className="flex items-center gap-2 mt-4">
             <Switch
-              defaultChecked={true}
-              onCheckedChange={(checked) => {
-                audioManager.toggleMute()
-                if (checked) {
-                  audioManager.setVolume(0.5)
-                }
-              }}
+              checked={!isMuted}
+              onCheckedChange={handleMuteToggle}
               className="data-[state=checked]:bg-green-600"
             />
 
